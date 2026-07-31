@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zotero Library Reader"
+  short_description: "Read local Zotero libraries and collections safely"
+  default_prompt: "Use $zotero-library-reader to read a collection from my local Zotero library."

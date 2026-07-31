@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "zotero-local": {
+      "command": "python",
+      "args": [
+        "/absolute/path/zotero-library-reader/zotero-library-reader/scripts/zotero_mcp.py"
+      ],
+      "env": {
+        "ZOTERO_DATA_DIR": "/absolute/path/to/Zotero"
+      }
+    }
+  }
+}

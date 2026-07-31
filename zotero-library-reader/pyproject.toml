@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zotero-local-reader"
+version = "0.1.0"
+description = "Portable read-only CLI and MCP access to local Zotero libraries"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.27,<2"]
+
+[project.scripts]
+zotero-local = "zotero_local_reader.backend:main"
+zotero-local-mcp = "zotero_local_reader.mcp_server:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
