@@ -48,5 +48,13 @@ Set `ZOTERO_MCP_TRANSPORT=streamable-http` before starting the same server. Bind
 - `zotero_get_item`
 - `zotero_resolve_attachment`
 - `zotero_search`
+- `zotero_get_cached_fulltext`
+- `zotero_get_annotation_digest`
+- `zotero_scite_item`
+- `zotero_scite_collection`
 
 The MCP surface intentionally has no write or export tool. Obsidian export remains a CLI/user-authorized workflow.
+
+The first ten tools are fully local. The two `zotero_scite_*` tools send DOI
+values to Scite's public API; they do not send PDF contents and do not require
+an API key.

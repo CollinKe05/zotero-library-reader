@@ -106,6 +106,56 @@ def zotero_search(
     )
 
 
+@mcp.tool()
+def zotero_get_cached_fulltext(
+    key: str,
+    max_chars: int = 200_000,
+    data_dir: str | None = None,
+) -> dict[str, Any]:
+    """Read Zotero's cached full text for an item or attachment key."""
+    return service(data_dir).cached_fulltext(key, max_chars)
+
+
+@mcp.tool()
+def zotero_get_annotation_digest(
+    collection: str,
+    library: str = "My Library",
+    recursive: bool = True,
+    limit: int = 500,
+    data_dir: str | None = None,
+) -> dict[str, Any]:
+    """Group child notes and PDF annotations by bibliographic item."""
+    return service(data_dir).annotation_digest(
+        collection, library, recursive, limit
+    )
+
+
+@mcp.tool()
+def zotero_scite_item(
+    key: str | None = None,
+    doi: str | None = None,
+    timeout: int = 15,
+    data_dir: str | None = None,
+) -> dict[str, Any]:
+    """Fetch Scite citation tallies and editorial notices for one DOI or item."""
+    return service(data_dir).scite_item(key, doi, timeout)
+
+
+@mcp.tool()
+def zotero_scite_collection(
+    collection: str,
+    library: str = "My Library",
+    recursive: bool = True,
+    limit: int = 500,
+    timeout: int = 15,
+    data_dir: str | None = None,
+) -> dict[str, Any]:
+    """Batch-enrich a collection with Scite citation intelligence."""
+    return service(data_dir).scite_collection(
+        collection, library, recursive, limit, timeout
+    )
+
+
 def main() -> None:
     transport = os.environ.get("ZOTERO_MCP_TRANSPORT", "stdio")
     mcp.run(transport=transport)

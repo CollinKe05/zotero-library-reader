@@ -2,48 +2,59 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-一个可移植、只读的本机 Zotero 访问工程，同时提供 Codex 技能、Python API、CLI 和 MCP 服务。
+一个面向 Codex 和其他 AI 客户端的“本地优先、只读”Zotero 访问层，同时提供
+Codex Skill、零依赖 CLI、Python API 与 MCP 服务。
 
-它能够定位 Zotero 数据目录、浏览个人及群组文库、解析多级分类、搜索题录、将附件键映射到本地 PDF、为 AI 论文讲解和跨文献综合准备数据，并可按需导出兼容 Obsidian 的文献网络。
+## 为什么需要这个项目
 
-## 主要能力
+本项目不追求成为功能最全的 Zotero 自动化服务器。它的生态位是：把私有的本地
+文献库安全、稳定地转换为 AI 可使用的研究基础设施。
 
-- 从本机 `zotero.sqlite` 读取个人文库和群组文库
-- 按完整路径访问多级分类
-- 获取标题、摘要、作者、标签、DOI、网址、引用键和附件
-- 解析 `ABCD1234` 一类 Zotero 存储附件键
-- 为单篇 PDF 讲解和整库综合生成完整数据包
-- 按需导出 Obsidian Markdown、索引和 `graph.json`
-- 提供 8 个只读 MCP 工具
-- 通过经过验证的临时快照保护 Zotero 原数据库
-- CLI 仅依赖 Python 标准库
+- Zotero 打开或关闭时都能工作；
+- 不需要 Zotero 账号、云端 API Key，也不依赖 23119 本地 API；
+- 通过经过验证的 SQLite 临时快照读取，不修改正在使用的数据库；
+- 获取题录、PDF 路径、缓存全文、笔记和 PDF 批注；
+- 为单篇讲解、跨论文比较和整库分析生成证据包；
+- 仅在用户要求时导出兼容 Obsidian 的知识网络；
+- 常规 CLI 只使用 Python 标准库。
+
+只有可选的 Scite 增强需要联网；它仅发送 DOI，不发送 PDF 内容。
+
+## 功能
+
+- 个人文库与群组文库
+- 多级分类路径、递归或仅直属条目
+- 标题、摘要、作者、标签、DOI、URL、引用键
+- 将 Zotero 附件键解析为本机文件
+- 读取 Zotero `.zotero-ft-cache` 缓存全文
+- 按论文汇总子笔记和 PDF 批注
+- 题录搜索与整分类分析数据包
+- 可选 Scite 引用语境计数与编辑声明
+- 可选 Obsidian Markdown 与 `graph.json`
+- 12 个只读 MCP 工具
 
 ## 架构
 
 ```mermaid
 flowchart LR
-    A["Codex / AI 客户端 / 脚本"] --> B["CLI 适配层"]
-    A --> C["MCP 适配层"]
-    A --> D["Python API"]
-    B --> E["ZoteroService"]
-    C --> E
-    D --> E
-    E --> F["经过验证的 SQLite 临时快照"]
-    F --> G["本机 Zotero 数据库"]
-    E --> H["题录与 PDF 路径数据包"]
-    H --> I["PDF 讲解与跨论文综合"]
-    H --> J["按需导出 Obsidian 网络"]
+    A["Codex / MCP 客户端 / 脚本"] --> B["CLI · MCP · Python API"]
+    B --> C["ZoteroService"]
+    C --> D["经过验证的 SQLite 临时快照"]
+    D --> E["本机 Zotero 数据目录"]
+    C --> F["研究证据包"]
+    F --> G["论文讲解 / 整库综合"]
+    F --> H["可选 Obsidian 导出"]
+    C -. "仅 DOI，可选" .-> I["Scite 公共 API"]
 ```
 
-## 环境要求
+## 环境与安装
 
-- Python 3.10 或更高版本
+- Python 3.10+
 - 本机存在包含 `zotero.sqlite` 的 Zotero 数据目录
-- MCP 为可选能力，依赖 `mcp>=1.27,<2`
+- MCP 为可选依赖：`mcp>=1.27,<2`
 
-`C:\Program Files\Zotero` 一类路径是程序目录，不是数据目录。常见数据目录为 `~/Zotero` 或 `C:\Users\<用户名>\Zotero`。
-
-## 安装为 Codex 技能
+`C:\Program Files\Zotero` 是程序目录，不是数据目录。常见数据目录为
+`~/Zotero` 或 `C:\Users\<用户名>\Zotero`。
 
 克隆仓库：
 
@@ -51,7 +62,7 @@ flowchart LR
 git clone https://github.com/CollinKe05/zotero-library-reader.git
 ```
 
-Windows PowerShell：
+在 Windows 上安装为 Codex Skill：
 
 ```powershell
 Copy-Item -Recurse `
@@ -66,48 +77,41 @@ cp -R ./zotero-library-reader/zotero-library-reader \
   "${CODEX_HOME:-$HOME/.codex}/skills/zotero-library-reader"
 ```
 
-重新启动 Codex 或新建任务，即可通过 `$zotero-library-reader` 发现该技能。
+新建一个 Codex 任务后，即可发现 `$zotero-library-reader`。
 
-## CLI 使用
+## CLI
 
 直接运行源码启动器，无需安装：
 
 ```bash
 python zotero-library-reader/scripts/zotero_cli.py locate
-python zotero-library-reader/scripts/zotero_cli.py libraries
-python zotero-library-reader/scripts/zotero_cli.py collections --library "我的文库"
+python zotero-library-reader/scripts/zotero_cli.py collections \
+  --library "My Library"
 python zotero-library-reader/scripts/zotero_cli.py items \
-  --library "我的文库" \
-  --collection "研究资料/机器人"
-python zotero-library-reader/scripts/zotero_cli.py attachment --key ABCD1234
+  --collection "Research/Robotics"
+python zotero-library-reader/scripts/zotero_cli.py bundle \
+  --collection "Research/Robotics"
+python zotero-library-reader/scripts/zotero_cli.py fulltext --key ABCD1234
+python zotero-library-reader/scripts/zotero_cli.py digest \
+  --collection "Research/Robotics"
+python zotero-library-reader/scripts/zotero_cli.py scite \
+  --collection "Research/Robotics"
 ```
 
-如果自动发现了多个数据目录，请显式指定：
+如果自动发现多个数据目录，请在子命令前增加
+`--data-dir "C:\Users\<用户名>\Zotero"`。
 
-```bash
-python zotero-library-reader/scripts/zotero_cli.py \
-  --data-dir "C:\Users\<用户名>\Zotero" \
-  items --collection "分类/子分类"
-```
-
-也可以安装 Python 包和命令行入口：
+安装为 Python 包和命令行程序：
 
 ```bash
 python -m pip install -e ./zotero-library-reader
 zotero-local locate
 ```
 
-## MCP 服务
-
-安装官方 MCP SDK 可选依赖：
+## MCP
 
 ```bash
 python -m pip install -e "./zotero-library-reader[mcp]"
-```
-
-启动 stdio 服务：
-
-```bash
 zotero-local-mcp
 ```
 
@@ -118,7 +122,7 @@ zotero-local-mcp
   "mcpServers": {
     "zotero-local": {
       "command": "python",
-      "args": ["<技能绝对路径>/scripts/zotero_mcp.py"],
+      "args": ["<Skill 绝对路径>/scripts/zotero_mcp.py"],
       "env": {
         "ZOTERO_DATA_DIR": "C:\\Users\\<用户名>\\Zotero"
       }
@@ -127,7 +131,7 @@ zotero-local-mcp
 }
 ```
 
-提供以下工具：
+工具列表：
 
 - `zotero_locate_data_dirs`
 - `zotero_list_libraries`
@@ -137,47 +141,40 @@ zotero-local-mcp
 - `zotero_get_item`
 - `zotero_resolve_attachment`
 - `zotero_search`
+- `zotero_get_cached_fulltext`
+- `zotero_get_annotation_digest`
+- `zotero_scite_item`
+- `zotero_scite_collection`
 
-MCP 接口有意保持为只读，不提供修改 Zotero 数据库的工具。
+MCP 始终只读。最后两个工具需要联网，但完全可选。
 
-## 论文讲解和整库综合
+## 论文讲解与整库分析
 
-先获取完整题录、摘要、标签和 PDF 路径：
+访问层负责提供可靠证据，而不是把分析逻辑锁死在某个模型中。AI 客户端可以结合
+题录、缓存全文、用户高亮、笔记和 PDF，沿研究问题、具身形态、表征、策略架构、
+训练数据、评测、局限、时间脉络和开放问题等维度串联论文。
 
-```bash
-python zotero-library-reader/scripts/zotero_cli.py bundle \
-  --collection "研究资料/机器人"
-```
+分类归属本身不会被当作引用或技术影响关系的证据。
 
-AI 客户端随后可以读取选定 PDF，并沿以下维度串联论文：
-
-- 研究问题和时间脉络
-- 具身形态、观测空间与动作空间
-- 模型架构和动作生成方法
-- 训练数据与监督方式
-- 评测场景和泛化能力
-- 局限、技术继承关系和开放问题
-
-分类归属本身不会被当作论文引用或影响关系的证据。
-
-## 按需导出 Obsidian 网络
-
-仅在明确需要导出时执行：
+按需导出 Obsidian 网络：
 
 ```bash
 python zotero-library-reader/scripts/zotero_cli.py obsidian \
-  --collection "研究资料/机器人" \
+  --collection "Research/Robotics" \
   --output-dir "./obsidian-export"
 ```
 
-导出结果包括：
+## 与其他项目的定位
 
-- 每篇论文一个 Markdown 笔记
-- 分类和作者节点
-- `00-Index.md`
-- `graph.json`
+| 项目 | 最适合 | 取舍 |
+|---|---|---|
+| 本项目 | 本地优先的 Codex 研究工作流、安全快照、证据包、可选 Obsidian | 刻意只读，不内置向量数据库 |
+| [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp) | 大而全 MCP、语义搜索、Zotero API 与写入流程 | 依赖和运行复杂度更高 |
+| [scitedotai/scite-zotero-plugin](https://github.com/scitedotai/scite-zotero-plugin) | 直接在 Zotero 中显示 Scite 列 | 是桌面插件而非研究 MCP；仓库未检测到许可证 |
+| [MuiseDestiny/zotero-gpt](https://github.com/MuiseDestiny/zotero-gpt) | 直接在 Zotero 内聊天和执行命令 | AGPL 桌面插件，模型配置与安全面更大 |
 
-还可以通过 `--relations relations.json` 加入论文之间的语义关系。此类关系应在实际阅读 PDF 并获得证据后生成。
+它们更适合组合而不是互相替代。例如，需要向量语义搜索或写操作时单独使用
+`zotero-mcp`；需要最小化、可审计的本地研究访问层时使用本项目。
 
 ## Python API
 
@@ -185,36 +182,18 @@ python zotero-library-reader/scripts/zotero_cli.py obsidian \
 from zotero_local_reader import ZoteroService
 
 zotero = ZoteroService(r"C:\Users\<用户名>\Zotero")
-collections = zotero.collections("我的文库")
-bundle = zotero.collection_bundle(
-    collection="研究资料/机器人",
-    library="我的文库",
-)
+bundle = zotero.collection_bundle("Research/Robotics")
+digest = zotero.annotation_digest("Research/Robotics")
+fulltext = zotero.cached_fulltext("ABCD1234")
 ```
 
-## 仓库结构
+## 隐私
 
-```text
-.
-├── README.md
-├── README.zh-CN.md
-├── LICENSE
-└── zotero-library-reader/
-    ├── SKILL.md
-    ├── agents/
-    ├── references/
-    ├── scripts/
-    ├── src/zotero_local_reader/
-    └── pyproject.toml
-```
-
-## 隐私与安全
-
-- 不需要 Zotero 账号密码、云端 API 密钥或网络访问。
-- 不会修改正在使用的 Zotero 原数据库。
-- 每次命令创建经过验证的临时快照，并在结束后删除。
-- 附件路径和题录可能包含隐私信息；若启用 HTTP MCP，只应绑定可信网络接口。
-- 除非调用方明确执行，否则不会上传或分析 PDF 内容。
+- 不修改正在使用的 Zotero 数据库；
+- 每次操作都会验证临时快照，并在结束后删除；
+- 本机题录、路径、笔记和全文都可能属于隐私数据；
+- Scite 调用只发送 DOI，且不会自动执行；
+- 本项目不会上传 PDF 内容。
 
 ## 许可证
 

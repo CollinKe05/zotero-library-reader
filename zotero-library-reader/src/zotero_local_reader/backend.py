@@ -698,6 +698,80 @@ def command_search(
     emit(records, args.format)
 
 
+def command_fulltext(
+    args: argparse.Namespace, con: sqlite3.Connection, data_dir: Path
+) -> None:
+    from .content import cached_fulltext
+
+    try:
+        emit(cached_fulltext(con, data_dir, args.key, args.max_chars), args.format)
+    except KeyError as exc:
+        fail(str(exc))
+
+
+def command_digest(
+    args: argparse.Namespace, con: sqlite3.Connection, _: Path
+) -> None:
+    from .content import annotation_digest
+
+    library = resolve_library(con, args.library)
+    cid, path = resolve_collection(con, library["libraryID"], args.collection)
+    ids = item_ids_for_collection(con, cid, not args.direct)
+    payload = annotation_digest(con, ids, args.limit)
+    emit(
+        {
+            "library": library["name"],
+            "collection": path,
+            "recursive": not args.direct,
+            **payload,
+        },
+        args.format,
+    )
+
+
+def command_scite(
+    args: argparse.Namespace, con: sqlite3.Connection, data_dir: Path
+) -> None:
+    from .scite import enrich_doi, enrich_items
+
+    if args.doi:
+        emit(enrich_doi(args.doi, args.timeout), args.format)
+        return
+    if args.key:
+        row = con.execute(
+            """
+            SELECT i.itemID FROM items i LEFT JOIN deletedItems d ON d.itemID=i.itemID
+            WHERE UPPER(i.key)=UPPER(?) AND d.itemID IS NULL
+            """,
+            (args.key,),
+        ).fetchone()
+        if not row:
+            fail(f"item key {args.key!r} not found")
+        record = item_record(con, row["itemID"], data_dir)
+        doi = record.get("DOI")
+        if not doi:
+            fail(f"no DOI found for item key {args.key!r}")
+        result = enrich_doi(doi, args.timeout)
+        result["zoteroKey"] = record["key"]
+        result["zoteroTitle"] = record.get("title")
+        emit(result, args.format)
+        return
+
+    library = resolve_library(con, args.library)
+    cid, path = resolve_collection(con, library["libraryID"], args.collection)
+    ids = item_ids_for_collection(con, cid, not args.direct)[: args.limit]
+    records = [item_record(con, item_id, data_dir) for item_id in ids]
+    emit(
+        {
+            "library": library["name"],
+            "collection": path,
+            "recursive": not args.direct,
+            **enrich_items(records, args.timeout),
+        },
+        args.format,
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Read local Zotero libraries without modifying the live database."
@@ -754,6 +828,32 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--collection")
     search.add_argument("--direct", action="store_true", help="exclude descendants")
     search.add_argument("--limit", type=int)
+
+    fulltext = sub.add_parser(
+        "fulltext", help="read Zotero's cached full text for an item or attachment"
+    )
+    fulltext.add_argument("--key", required=True)
+    fulltext.add_argument("--max-chars", type=int, default=200_000)
+
+    digest = sub.add_parser(
+        "digest", help="group child notes and PDF annotations by paper"
+    )
+    digest.add_argument("--library", default="My Library")
+    digest.add_argument("--collection", required=True)
+    digest.add_argument("--direct", action="store_true", help="exclude descendants")
+    digest.add_argument("--limit", type=int, default=500)
+
+    scite = sub.add_parser(
+        "scite", help="add Scite citation tallies and editorial notices"
+    )
+    target = scite.add_mutually_exclusive_group(required=True)
+    target.add_argument("--key")
+    target.add_argument("--doi")
+    target.add_argument("--collection")
+    scite.add_argument("--library", default="My Library")
+    scite.add_argument("--direct", action="store_true", help="exclude descendants")
+    scite.add_argument("--limit", type=int, default=500)
+    scite.add_argument("--timeout", type=int, default=15)
     return parser
 
 
@@ -773,6 +873,9 @@ def main() -> None:
         "item": command_item,
         "attachment": command_attachment,
         "search": command_search,
+        "fulltext": command_fulltext,
+        "digest": command_digest,
+        "scite": command_scite,
     }
     with snapshot_connection(data_dir) as con:
         commands[args.command](args, con, data_dir)

@@ -1,6 +1,6 @@
 ---
 name: zotero-library-reader
-description: Read and inspect local Zotero data directories, personal or group libraries, collection trees, bibliographic metadata, tags, and attachment paths without modifying the live database. Use when the user asks to access, browse, list, search, summarize, or export a local Zotero library or a named Zotero category/collection, or provides a Zotero storage key/path such as storage/ABCD1234.
+description: Read and inspect local Zotero data directories, personal or group libraries, collection trees, bibliographic metadata, tags, attachment paths, cached full text, notes, and PDF annotations without modifying the live database. Use when the user asks to access, browse, search, explain, compare, summarize, analyze, enrich, or export a local Zotero library or a named collection, or provides a Zotero item/storage key such as ABCD1234.
 ---
 
 # Zotero Library Reader
@@ -47,9 +47,23 @@ Use `scripts/zotero_cli.py` for deterministic, read-only access. It creates and 
 
    Read [references/synthesis.md](references/synthesis.md) completely when the user requests PDF explanation, comparison, collection-wide synthesis, a research map, or Obsidian export.
 
+8. Prefer Zotero's existing local text and reading evidence before reparsing PDFs:
+
+   `python scripts/zotero_cli.py fulltext --key PAPER123`
+
+   `python scripts/zotero_cli.py digest --library "My Library" --collection "Research/Robotics"`
+
+9. Add citation-context signals only when useful:
+
+   `python scripts/zotero_cli.py scite --key PAPER123`
+
+   `python scripts/zotero_cli.py scite --collection "Research/Robotics"`
+
+   Scite enrichment is the only networked CLI operation. It sends DOI values to Scite's public API and does not require an API key. Tell the user before using it when DOI privacy matters.
+
 ## MCP interface
 
-Read [references/mcp.md](references/mcp.md) completely when installing, configuring, or exposing the MCP server. Keep the MCP interface read-only. It provides library, collection, item, attachment, search, and full collection-bundle tools.
+Read [references/mcp.md](references/mcp.md) completely when installing, configuring, or exposing the MCP server. Keep the MCP interface read-only. It provides library, collection, item, attachment, search, bundle, cached-full-text, note/annotation-digest, and optional Scite tools.
 
 Run:
 
@@ -72,6 +86,13 @@ The reusable package is under `src/zotero_local_reader`; `ZoteroService` is the 
 - Report collection item counts as unique bibliographic records. An item can belong to both a parent collection and a child collection.
 - Only open or extract PDF content when the user requests content analysis; otherwise return the resolved attachment paths and metadata.
 - Generate Obsidian notes or semantic relationship graphs only when the user explicitly requests them.
+- Treat Scite tallies as citation-context signals, not a substitute for reading citing papers.
+
+## Capability routing
+
+Use this skill's native CLI/MCP by default for deterministic, local-first collection access and research-workflow preparation.
+
+Read [references/upstream-integrations.md](references/upstream-integrations.md) completely when the user explicitly needs vector semantic search, Zotero write operations, an in-Zotero desktop UI, or asks how this project compares with other Zotero integrations. Do not copy or bundle upstream code without checking its license and dependency impact.
 
 ## CLI reference
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zotero-local-reader"
-version = "0.1.0"
+version = "0.2.0"
 description = "Portable read-only CLI and MCP access to local Zotero libraries"
 requires-python = ">=3.10"
 dependencies = []
