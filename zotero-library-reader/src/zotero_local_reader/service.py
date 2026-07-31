@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from . import backend
+from .content import annotation_digest as build_annotation_digest
+from .content import cached_fulltext as read_cached_fulltext
+from .scite import enrich_doi, enrich_items
 
 
 class ZoteroService:
@@ -199,3 +202,83 @@ class ZoteroService:
             limit=limit,
             full=True,
         )
+
+    def annotation_digest(
+        self,
+        collection: str,
+        library: str = "My Library",
+        recursive: bool = True,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        """Collect child notes and PDF annotations grouped by paper."""
+        with backend.snapshot_connection(self.data_dir) as con:
+            selected = backend.resolve_library(con, library)
+            cid, path = backend.resolve_collection(
+                con, selected["libraryID"], collection
+            )
+            ids = backend.item_ids_for_collection(con, cid, recursive)
+            digest = build_annotation_digest(con, ids, limit)
+            return {
+                "dataDir": str(self.data_dir),
+                "library": selected["name"],
+                "collection": path,
+                "recursive": recursive,
+                **digest,
+            }
+
+    def cached_fulltext(
+        self,
+        key: str,
+        max_chars: int = 200_000,
+    ) -> dict[str, Any]:
+        """Read Zotero's cached full text for an item or attachment key."""
+        with backend.snapshot_connection(self.data_dir) as con:
+            try:
+                return read_cached_fulltext(con, self.data_dir, key, max_chars)
+            except KeyError as exc:
+                backend.fail(str(exc))
+
+    def scite_item(
+        self,
+        key: str | None = None,
+        doi: str | None = None,
+        timeout: int = 15,
+    ) -> dict[str, Any]:
+        """Fetch Scite citation tallies and editorial notices for one paper."""
+        record: dict[str, Any] | None = None
+        if not doi:
+            if not key:
+                backend.fail("provide either key or DOI")
+            record = self.item(key)
+            doi = record.get("DOI")
+        if not doi:
+            backend.fail(f"no DOI found for item key {key!r}")
+        result = enrich_doi(doi, timeout)
+        if record:
+            result["zoteroKey"] = record["key"]
+            result["zoteroTitle"] = record.get("title")
+        return result
+
+    def scite_collection(
+        self,
+        collection: str,
+        library: str = "My Library",
+        recursive: bool = True,
+        limit: int = 500,
+        timeout: int = 15,
+    ) -> dict[str, Any]:
+        """Batch-enrich collection metadata with Scite citation intelligence."""
+        bundle = self.collection_items(
+            collection=collection,
+            library=library,
+            recursive=recursive,
+            limit=limit,
+            full=True,
+        )
+        result = enrich_items(bundle["items"], timeout)
+        return {
+            "library": bundle["library"],
+            "collection": bundle["collection"],
+            "recursive": recursive,
+            **result,
+        }
